@@ -71,7 +71,7 @@ func TestNewPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, err := NewPolicy(c.rules...)
+		_, err := NewPolicy("magalix.advisor", "violation", c.rules)
 		if c.hasError {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
@@ -131,14 +131,12 @@ func TestOpaValidator(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		policy, _ := NewPolicy(c.rule)
+		policy, _ := NewPolicy("magalix.advisor", "violation", []string{c.rule})
 		err := OpaValidator("{}", policy)
 		if c.hasViolation {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
-			}
-
-			if err.Error() != c.violationMsg {
+			} else if err.Error() != c.violationMsg {
 				t.Errorf("[%s]: expected error msg %s but got %s", c.name, c.violationMsg, err)
 			}
 		} else {

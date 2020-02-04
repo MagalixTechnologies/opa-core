@@ -11,36 +11,26 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
-func moduleTemplate() *ast.Module {
-	template := `
-package magalix.Validator
-
-# returns containers specs from the controller's full spec
-containers = input.spec.template.spec.containers {
-	s := {"StatefulSet" , "DaemonSet", "Deployment", "Job"}
-    s[_] = input.kind
-} else = input.spec.containers {
-	input.kind == "Pod"
-} else = input.spec.jobTemplate.spec.template.spec.containers {
-	input.kind == "CronJob"
+// Policy contains policy and metedata
+type Policy struct {
+	name    string
+	query   string
+	content *ast.Module
 }
-
-controller = input
-
-`
-	return ast.MustParseModule(template)
-}
-
-// Policy parsed policy
-type Policy *ast.Module
 
 // NewPolicy constructs OPA policy from the given rule bodies
-func NewPolicy(rules ...string) (Policy, error) {
-	module := moduleTemplate()
+func NewPolicy(name, query string, rules []string) (Policy, error) {
+	// generate an empty module with package
+	template := fmt.Sprintf(`
+package %s
+
+`, name)
+	module := ast.MustParseModule(template)
+
 	for _, rule := range rules {
 		parsedRule, err := ast.ParseRule(rule)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid rule syntax %w", err)
+			return Policy{}, fmt.Errorf("Invalid rule syntax %w", err)
 		}
 		parsedRule.Module = module
 		module.Rules = append(module.Rules, parsedRule)
@@ -52,10 +42,14 @@ func NewPolicy(rules ...string) (Policy, error) {
 		"": module,
 	}
 	if c.Compile(mods); c.Failed() {
-		return nil, c.Errors
+		return Policy{}, c.Errors
 	}
 
-	return module, nil
+	return Policy{
+		name:    name,
+		query:   query,
+		content: module,
+	}, nil
 }
 
 // OpaValidator validates data against given policy
@@ -70,8 +64,8 @@ func OpaValidator(data string, policy Policy) error {
 	}
 
 	rego := rego.New(
-		rego.Query("data.magalix.Validator.violation"),
-		rego.ParsedModule(policy),
+		rego.Query(fmt.Sprintf("data.%s.%s", policy.name, policy.query)),
+		rego.ParsedModule(policy.content),
 		rego.Input(input),
 	)
 
@@ -80,7 +74,6 @@ func OpaValidator(data string, policy Policy) error {
 	if err != nil {
 		return err
 	}
-
 	for _, r := range rs {
 		for _, expr := range r.Expressions {
 			switch reflect.TypeOf(expr.Value).Kind() {

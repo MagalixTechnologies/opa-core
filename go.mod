@@ -1,4 +1,4 @@
-module github.com/MagalixTechnologies/opa-engine-lib
+module github.com/MagalixTechnologies/opa-core
 
 go 1.13
 
