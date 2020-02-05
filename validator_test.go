@@ -1,77 +1,69 @@
-package engine
+package core
 
 import "testing"
 
-type testCaseNewPolicy struct {
+type testCaseParsePolicy struct {
 	name     string
-	rules    []string
+	content  string
 	hasError bool
 }
 
 func TestNewPolicy(t *testing.T) {
-	cases := []testCaseNewPolicy{
-		testCaseNewPolicy{
+	cases := []testCaseParsePolicy{
+		testCaseParsePolicy{
 			name: "single rule",
-			rules: []string{`
+			content: `
+		package core
 		violations[issue] {
 			issue = "test"
-		}
-		`},
-		},
-		testCaseNewPolicy{
-			name: "invalid syntax",
-			rules: []string{`
-			issue = "test issue")
-		`},
-			hasError: true,
-		},
-		testCaseNewPolicy{
+		}`},
+		testCaseParsePolicy{
 			name: "multiple rules at once",
-			rules: []string{`
+			content: `
+			package core
 			violations[issue] {
 				issue = "test"
 			}
 			violations[issue] {
 				issue = "test"
 			}
-		`},
-			hasError: true,
+		`,
+			hasError: false,
 		},
-		testCaseNewPolicy{
+		testCaseParsePolicy{
 			name: "invalid syntax",
-			rules: []string{`
+			content: `
+			package core
 			issue = "test issue")
-		`},
+		`,
 			hasError: true,
 		},
-		testCaseNewPolicy{
-			name: "multiple rules at once",
-			rules: []string{`
-
-		`},
+		testCaseParsePolicy{
+			name: "invalid syntax",
+			content: `
+			package core
+			issue = "test issue")
+		`,
 			hasError: true,
 		},
-		testCaseNewPolicy{
-			name: "empty rule",
-			rules: []string{`
-			violations[issue] {
-			}
-		`},
+		testCaseParsePolicy{
+			name:     "empty content",
+			content:  "",
 			hasError: true,
 		},
-		testCaseNewPolicy{
+		testCaseParsePolicy{
 			name: "no issue variable provided",
-			rules: []string{`
+			content: `
 			violations[issue] {
 				x = 3
 			}
-		`},
+		`,
 			hasError: true,
 		},
 	}
 
 	for _, c := range cases {
-		_, err := NewPolicy("magalix.advisor", "violation", c.rules)
+		_, err := Parse("magalix.advisor", c.content)
 		if c.hasError {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
@@ -86,7 +78,7 @@ func TestNewPolicy(t *testing.T) {
 
 type testCaseOpaValidator struct {
 	name         string
-	rule         string
+	content      string
 	violationMsg string
 	hasViolation bool
 }
@@ -95,8 +87,9 @@ func TestOpaValidator(t *testing.T) {
 	cases := []testCaseOpaValidator{
 		testCaseOpaValidator{
 			name: "rule has a string violation",
-			rule: `
-			violation[issue] {
+			content: `
+			package core
+			violations[issue] {
 				issue = "violation test"
 			}`,
 			violationMsg: "violation test",
@@ -104,16 +97,18 @@ func TestOpaValidator(t *testing.T) {
 		},
 		testCaseOpaValidator{
 			name: "rule has no violations",
-			rule: `
-			violation[issue] {
+			content: `
+			package core
+			violations[issue] {
 				1 == 2
 				issue = "violation test"
 			}`,
 		},
 		testCaseOpaValidator{
 			name: "rule has an empty violations",
-			rule: `
-			violation[issue] {
+			content: `
+			package core
+			violations[issue] {
 				issue = ""
 			}`,
 			violationMsg: "",
@@ -121,8 +116,9 @@ func TestOpaValidator(t *testing.T) {
 		},
 		testCaseOpaValidator{
 			name: "rule has a bool violations",
-			rule: `
-			violation[issue] {
+			content: `
+			package core
+			violations[issue] {
 				issue = true
 			}`,
 			violationMsg: "true",
@@ -131,8 +127,8 @@ func TestOpaValidator(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		policy, _ := NewPolicy("magalix.advisor", "violation", []string{c.rule})
-		err := OpaValidator("{}", policy)
+		policy, _ := Parse("magalix.advisor", c.content)
+		err := policy.Eval("{}", "violations")
 		if c.hasViolation {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)

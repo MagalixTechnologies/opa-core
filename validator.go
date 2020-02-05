@@ -1,11 +1,10 @@
-package engine
+package core
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
@@ -13,60 +12,37 @@ import (
 
 // Policy contains policy and metedata
 type Policy struct {
-	name    string
-	query   string
-	content *ast.Module
+	name   string
+	module *ast.Module
+	pkg    string
 }
 
-// NewPolicy constructs OPA policy from the given rule bodies
-func NewPolicy(name, query string, rules []string) (Policy, error) {
-	// generate an empty module with package
-	template := fmt.Sprintf(`
-package %s
-
-`, name)
-	module := ast.MustParseModule(template)
-
-	for _, rule := range rules {
-		parsedRule, err := ast.ParseRule(rule)
-		if err != nil {
-			return Policy{}, fmt.Errorf("Invalid rule syntax %w", err)
-		}
-		parsedRule.Module = module
-		module.Rules = append(module.Rules, parsedRule)
-	}
-
+// ParsePolicy constructs OPA policy from string
+func Parse(name, content string) (Policy, error) {
 	// validate module
-	c := ast.NewCompiler()
-	mods := map[string]*ast.Module{
-		"": module,
+	module, err := ast.ParseModule("", content)
+	if err != nil {
+		return Policy{}, err
 	}
-	if c.Compile(mods); c.Failed() {
-		return Policy{}, c.Errors
+
+	if module == nil {
+		return Policy{}, fmt.Errorf("Failed to parse module: empty content")
 	}
 
 	return Policy{
-		name:    name,
-		query:   query,
-		content: module,
+		name:   name,
+		module: module,
+		pkg:    strings.Split(module.Package.String(), "package ")[1],
 	}, nil
 }
 
-// OpaValidator validates data against given policy
+// Eval validates data against given policy
 // returns error if there're any violations found
-func OpaValidator(data string, policy Policy) error {
-	// Build inputs from data
-	var input interface{}
-	dataDecoder := json.NewDecoder(bytes.NewBufferString(data))
-	dataDecoder.UseNumber()
-	if err := dataDecoder.Decode(&input); err != nil {
-		return err
-	}
-
+func (p Policy) Eval(data interface{}, query string) error {
 	rego := rego.New(
-		rego.Query(fmt.Sprintf("data.%s.%s", policy.name, policy.query)),
-		rego.ParsedModule(policy.content),
-		rego.Input(input),
+		rego.Query(fmt.Sprintf("data.%s.%s", p.pkg, query)),
+		rego.ParsedModule(p.module),
+		rego.Input(data),
 	)
 
 	// Run evaluation.
