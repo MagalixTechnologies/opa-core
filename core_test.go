@@ -8,7 +8,7 @@ type testCaseParsePolicy struct {
 	hasError bool
 }
 
-func TestNewPolicy(t *testing.T) {
+func TestParse(t *testing.T) {
 	cases := []testCaseParsePolicy{
 		testCaseParsePolicy{
 			name: "single rule",
@@ -63,7 +63,7 @@ func TestNewPolicy(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		_, err := Parse("magalix.advisor", c.content)
+		_, err := Parse(c.content)
 		if c.hasError {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
@@ -76,16 +76,16 @@ func TestNewPolicy(t *testing.T) {
 	}
 }
 
-type testCaseOpaValidator struct {
+type testCaseEval struct {
 	name         string
 	content      string
 	violationMsg string
 	hasViolation bool
 }
 
-func TestOpaValidator(t *testing.T) {
-	cases := []testCaseOpaValidator{
-		testCaseOpaValidator{
+func TestEval(t *testing.T) {
+	cases := []testCaseEval{
+		testCaseEval{
 			name: "rule has a string violation",
 			content: `
 			package core
@@ -95,7 +95,7 @@ func TestOpaValidator(t *testing.T) {
 			violationMsg: "violation test",
 			hasViolation: true,
 		},
-		testCaseOpaValidator{
+		testCaseEval{
 			name: "rule has no violations",
 			content: `
 			package core
@@ -104,7 +104,7 @@ func TestOpaValidator(t *testing.T) {
 				issue = "violation test"
 			}`,
 		},
-		testCaseOpaValidator{
+		testCaseEval{
 			name: "rule has an empty violations",
 			content: `
 			package core
@@ -114,7 +114,7 @@ func TestOpaValidator(t *testing.T) {
 			violationMsg: "",
 			hasViolation: true,
 		},
-		testCaseOpaValidator{
+		testCaseEval{
 			name: "rule has a bool violations",
 			content: `
 			package core
@@ -127,7 +127,7 @@ func TestOpaValidator(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		policy, _ := Parse("magalix.advisor", c.content)
+		policy, _ := Parse(c.content)
 		err := policy.Eval("{}", "violations")
 		if c.hasViolation {
 			if err == nil {

@@ -12,13 +12,12 @@ import (
 
 // Policy contains policy and metedata
 type Policy struct {
-	name   string
 	module *ast.Module
 	pkg    string
 }
 
-// ParsePolicy constructs OPA policy from string
-func Parse(name, content string) (Policy, error) {
+// Parse constructs OPA policy from string
+func Parse(content string) (Policy, error) {
 	// validate module
 	module, err := ast.ParseModule("", content)
 	if err != nil {
@@ -30,7 +29,6 @@ func Parse(name, content string) (Policy, error) {
 	}
 
 	return Policy{
-		name:   name,
 		module: module,
 		pkg:    strings.Split(module.Package.String(), "package ")[1],
 	}, nil
