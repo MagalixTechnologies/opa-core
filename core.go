@@ -10,12 +10,6 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
-// Policy contains policy and metedata
-type Policy struct {
-	module *ast.Module
-	pkg    string
-}
-
 // Parse constructs OPA policy from string
 func Parse(content string) (Policy, error) {
 	// validate module
@@ -56,7 +50,10 @@ func (p Policy) Eval(data interface{}, query string) error {
 				s := expr.Value.([]interface{})
 				// FIXME: return multiple violations if found
 				for i := 0; i < len(s); i++ {
-					return fmt.Errorf("%v", s[i])
+					err := NoValidError{
+						Details: s[i],
+					}
+					return err
 				}
 			}
 		}
