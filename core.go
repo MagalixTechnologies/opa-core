@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -20,6 +21,18 @@ func Parse(content string) (Policy, error) {
 
 	if module == nil {
 		return Policy{}, fmt.Errorf("Failed to parse module: empty content")
+	}
+
+	var valid bool
+	for _, rule := range module.Rules {
+		if rule.Head.Name == "violations" {
+			valid = true
+			break
+		}
+	}
+
+	if !valid {
+		return Policy{}, errors.New("rule `violations` is not found`")
 	}
 
 	return Policy{

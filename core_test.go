@@ -1,6 +1,8 @@
 package core
 
-import "testing"
+import (
+	"testing"
+)
 
 type testCaseParsePolicy struct {
 	name     string
@@ -92,7 +94,7 @@ func TestEval(t *testing.T) {
 			violations[issue] {
 				issue = "violation test"
 			}`,
-			violationMsg: "violation test",
+			violationMsg: "\"violation test\"",
 			hasViolation: true,
 		},
 		testCaseEval{
@@ -111,7 +113,7 @@ func TestEval(t *testing.T) {
 			violations[issue] {
 				issue = ""
 			}`,
-			violationMsg: "",
+			violationMsg: "\"\"",
 			hasViolation: true,
 		},
 		testCaseEval{
@@ -133,7 +135,7 @@ func TestEval(t *testing.T) {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
 			} else if err.Error() != c.violationMsg {
-				t.Errorf("[%s]: expected error msg %s but got %s", c.name, c.violationMsg, err)
+				t.Errorf("[%s]: expected error msg '%s' but got %s", c.name, c.violationMsg, err)
 			}
 		} else {
 			if err != nil {
