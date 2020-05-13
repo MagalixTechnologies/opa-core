@@ -35,10 +35,18 @@ func Parse(content string) (Policy, error) {
 		return Policy{}, errors.New("rule `violations` is not found`")
 	}
 
-	return Policy{
+	policy := Policy{
 		module: module,
 		pkg:    strings.Split(module.Package.String(), "package ")[1],
-	}, nil
+	}
+
+	err = policy.Eval("{}", "violations")
+	var opaErr OPAError
+	if err != nil && !errors.As(err, &opaErr) {
+		return Policy{}, err
+	}
+
+	return policy, nil
 }
 
 // Eval validates data against given policy

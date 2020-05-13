@@ -54,7 +54,17 @@ func TestParse(t *testing.T) {
 			hasError: true,
 		},
 		testCaseParsePolicy{
-			name: "no issue variable provided",
+			name: "no issue variable",
+			content: `
+			package core
+			violations[issue] {
+				x = 3
+			}
+		`,
+			hasError: true,
+		},
+		testCaseParsePolicy{
+			name: "policy without package",
 			content: `
 			violations[issue] {
 				x = 3
@@ -88,16 +98,6 @@ type testCaseEval struct {
 func TestEval(t *testing.T) {
 	cases := []testCaseEval{
 		testCaseEval{
-			name: "rule has a string violation",
-			content: `
-			package core
-			violations[issue] {
-				issue = "violation test"
-			}`,
-			violationMsg: "\"violation test\"",
-			hasViolation: true,
-		},
-		testCaseEval{
 			name: "rule has no violations",
 			content: `
 			package core
@@ -129,8 +129,9 @@ func TestEval(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		policy, _ := Parse(c.content)
-		err := policy.Eval("{}", "violations")
+		policy, err := Parse(c.content)
+		err = policy.Eval("{}", "violations")
+
 		if c.hasViolation {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
