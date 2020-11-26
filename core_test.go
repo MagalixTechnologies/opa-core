@@ -12,14 +12,14 @@ type testCaseParsePolicy struct {
 
 func TestParse(t *testing.T) {
 	cases := []testCaseParsePolicy{
-		testCaseParsePolicy{
+		{
 			name: "single rule",
 			content: `
 		package core
 		violations[issue] {
 			issue = "test"
 		}`},
-		testCaseParsePolicy{
+		{
 			name: "multiple rules at once",
 			content: `
 			package core
@@ -32,7 +32,7 @@ func TestParse(t *testing.T) {
 		`,
 			hasError: false,
 		},
-		testCaseParsePolicy{
+		{
 			name: "invalid syntax",
 			content: `
 			package core
@@ -40,7 +40,7 @@ func TestParse(t *testing.T) {
 		`,
 			hasError: true,
 		},
-		testCaseParsePolicy{
+		{
 			name: "invalid syntax",
 			content: `
 			package core
@@ -48,12 +48,12 @@ func TestParse(t *testing.T) {
 		`,
 			hasError: true,
 		},
-		testCaseParsePolicy{
+		{
 			name:     "empty content",
 			content:  "",
 			hasError: true,
 		},
-		testCaseParsePolicy{
+		{
 			name: "no issue variable",
 			content: `
 			package core
@@ -63,13 +63,42 @@ func TestParse(t *testing.T) {
 		`,
 			hasError: true,
 		},
-		testCaseParsePolicy{
+		{
 			name: "policy without package",
 			content: `
 			violations[issue] {
 				x = 3
 			}
 		`,
+			hasError: true,
+		},
+		{
+			name: "policy with runtime error for multiple specs or containers",
+			content: `
+			package magalix.advisor.image_pull
+
+			violations[result] {
+				not controller_spec.imagePullPolicy
+				result = {
+					"issue": true
+				}
+			}
+
+
+
+			# controller_container acts as an iterator to get containers from the template
+			controller_spec = input.spec.template.spec.containers[_] {
+				contains_kind(input.kind, {"StatefulSet" , "DaemonSet", "Deployment", "Job"})
+			} else = input.spec {
+				input.kind == "Pod"
+			} else = input.spec.jobTemplate.spec.template.spec {
+				input.kind == "CronJob"
+			}
+
+			contains_kind(kind, kinds) {
+			  kinds[_] = kind
+			}
+			`,
 			hasError: true,
 		},
 	}
@@ -97,7 +126,7 @@ type testCaseEval struct {
 
 func TestEval(t *testing.T) {
 	cases := []testCaseEval{
-		testCaseEval{
+		{
 			name: "rule has no violations",
 			content: `
 			package core
@@ -106,7 +135,7 @@ func TestEval(t *testing.T) {
 				issue = "violation test"
 			}`,
 		},
-		testCaseEval{
+		{
 			name: "rule has an empty violations",
 			content: `
 			package core
@@ -116,7 +145,7 @@ func TestEval(t *testing.T) {
 			violationMsg: "\"\"",
 			hasViolation: true,
 		},
-		testCaseEval{
+		{
 			name: "rule has a bool violations",
 			content: `
 			package core
