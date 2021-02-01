@@ -100,6 +100,12 @@ func (p Policy) Eval(data interface{}, query string) error {
 					}
 					return err
 				}
+			case reflect.Map:
+				s := expr.Value.(map[string]interface{})
+				err := NoValidError{
+					Details: s,
+				}
+				return err
 			}
 		}
 	}
