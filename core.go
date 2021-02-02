@@ -11,7 +11,7 @@ import (
 )
 
 // Parse constructs OPA policy from string
-func Parse(content string) (Policy, error) {
+func Parse(content, ruleQuery string) (Policy, error) {
 	// validate module
 	module, err := ast.ParseModule("", content)
 	if err != nil {
@@ -20,6 +20,18 @@ func Parse(content string) (Policy, error) {
 
 	if module == nil {
 		return Policy{}, fmt.Errorf("Failed to parse module: empty content")
+	}
+
+	var valid bool
+	for _, rule := range module.Rules {
+		if rule.Head.Name == ast.Var(ruleQuery) {
+			valid = true
+			break
+		}
+	}
+
+	if !valid {
+		return Policy{}, fmt.Errorf("rule `%s` is not found", ruleQuery)
 	}
 
 	policy := Policy{
