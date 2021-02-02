@@ -12,8 +12,8 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
-// Parse constructs OPA policy from string
-func Parse(content string) (Policy, error) {
+// ParseWithRule constructs OPA policy from string
+func ParseWithRule(content, ruleName string) (Policy, error) {
 	// validate module
 	module, err := ast.ParseModule("", content)
 	if err != nil {
@@ -26,14 +26,14 @@ func Parse(content string) (Policy, error) {
 
 	var valid bool
 	for _, rule := range module.Rules {
-		if rule.Head.Name == "violations" {
+		if rule.Head.Name == ast.Var(ruleName) {
 			valid = true
 			break
 		}
 	}
 
 	if !valid {
-		return Policy{}, errors.New("rule `violations` is not found`")
+		return Policy{}, fmt.Errorf("rule `%s` is not found", ruleName)
 	}
 
 	policy := Policy{
@@ -41,7 +41,7 @@ func Parse(content string) (Policy, error) {
 		pkg:    strings.Split(module.Package.String(), "package ")[1],
 	}
 
-	err = policy.Eval("{}", "violations")
+	err = policy.Eval("{}", ruleName)
 	var opaErr OPAError
 	if err != nil && !errors.As(err, &opaErr) {
 		return Policy{}, err
@@ -53,7 +53,7 @@ func Parse(content string) (Policy, error) {
 	if err != nil {
 		return Policy{}, err
 	}
-	err = policy.Eval(jsonMap, "violations")
+	err = policy.Eval(jsonMap, ruleName)
 	if err != nil && !errors.As(err, &opaErr) {
 		return Policy{}, err
 	}
@@ -65,12 +65,17 @@ func Parse(content string) (Policy, error) {
 		return Policy{}, err
 	}
 
-	err = policy.Eval(jsonMap, "violations")
+	err = policy.Eval(jsonMap, ruleName)
 	if err != nil && !errors.As(err, &opaErr) {
 		return Policy{}, err
 	}
 
 	return policy, nil
+}
+
+// Parse constructs OPA policy from string with violations as rule name
+func Parse(content string) (Policy, error) {
+	return ParseWithRule(content, "violations")
 }
 
 // Eval validates data against given policy
