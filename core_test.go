@@ -16,17 +16,17 @@ func TestParse(t *testing.T) {
 			name: "single rule",
 			content: `
 		package core
-		violations[issue] {
+		violation[issue] {
 			issue = "test"
 		}`},
 		{
 			name: "multiple rules at once",
 			content: `
 			package core
-			violations[issue] {
+			violation[issue] {
 				issue = "test"
 			}
-			violations[issue] {
+			violation[issue] {
 				issue = "test"
 			}
 		`,
@@ -54,57 +54,18 @@ func TestParse(t *testing.T) {
 			hasError: true,
 		},
 		{
-			name: "no issue variable",
-			content: `
-			package core
-			violations[issue] {
-				x = 3
-			}
-		`,
-			hasError: true,
-		},
-		{
 			name: "policy without package",
 			content: `
-			violations[issue] {
+			violation[issue] {
 				x = 3
 			}
 		`,
-			hasError: true,
-		},
-		{
-			name: "policy with runtime error for multiple specs or containers",
-			content: `
-			package magalix.advisor.image_pull
-
-			violations[result] {
-				not controller_spec.imagePullPolicy
-				result = {
-					"issue": true
-				}
-			}
-
-
-
-			# controller_container acts as an iterator to get containers from the template
-			controller_spec = input.spec.template.spec.containers[_] {
-				contains_kind(input.kind, {"StatefulSet" , "DaemonSet", "Deployment", "Job"})
-			} else = input.spec {
-				input.kind == "Pod"
-			} else = input.spec.jobTemplate.spec.template.spec {
-				input.kind == "CronJob"
-			}
-
-			contains_kind(kind, kinds) {
-			  kinds[_] = kind
-			}
-			`,
 			hasError: true,
 		},
 	}
 
 	for _, c := range cases {
-		_, err := Parse(c.content)
+		_, err := Parse(c.content, "violation")
 		if c.hasError {
 			if err == nil {
 				t.Errorf("[%s]: passed but should have been failed", c.name)
@@ -127,29 +88,29 @@ type testCaseEval struct {
 func TestEval(t *testing.T) {
 	cases := []testCaseEval{
 		{
-			name: "rule has no violations",
+			name: "rule has no violation",
 			content: `
 			package core
-			violations[issue] {
+			violation[issue] {
 				1 == 2
 				issue = "violation test"
 			}`,
 		},
 		{
-			name: "rule has an empty violations",
+			name: "rule has an empty violation",
 			content: `
 			package core
-			violations[issue] {
+			violation[issue] {
 				issue = ""
 			}`,
 			violationMsg: "\"\"",
 			hasViolation: true,
 		},
 		{
-			name: "rule has a bool violations",
+			name: "rule has a bool violation",
 			content: `
 			package core
-			violations[issue] {
+			violation[issue] {
 				issue = true
 			}`,
 			violationMsg: "true",
@@ -158,8 +119,8 @@ func TestEval(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		policy, err := Parse(c.content)
-		err = policy.Eval("{}", "violations")
+		policy, err := Parse(c.content, "violation")
+		err = policy.Eval("{}", "violation")
 
 		if c.hasViolation {
 			if err == nil {
@@ -173,4 +134,49 @@ func TestEval(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestEvalGateKeeperCompliant(t *testing.T) {
+	cases := []testCaseEval{
+		{
+			name: "rule has no violation",
+			content: `
+			package magalix.advisor.labels.missing_label
+
+label := input.parameters.label
+
+violation[result] {
+  result=input.review.name
+}
+`,
+			hasViolation: true,
+			violationMsg: "\"kubernetes-downwardapi-volume-example\"",
+		},
+	}
+
+	for _, c := range cases {
+		policy, err := Parse(c.content, "violation")
+		err = policy.EvalGateKeeperCompliant(
+			map[string]interface{}{
+				"apiVersion": "v1", "kind": "Pod",
+				"metadata": map[string]interface{}{"name": "kubernetes-downwardapi-volume-example",
+					"labels":      map[string]interface{}{"zone": "us-est-coast", "cluster": "test-cluster1", "rack": "rack-22"},
+					"annotations": map[string]interface{}{"build": "two", "builder": "john-doe"}}},
+			map[string]interface{}{"probe": "livenessProbe"},
+			"violation",
+		)
+
+		if c.hasViolation {
+			if err == nil {
+				t.Errorf("[%s]: passed but should have been failed", c.name)
+			} else if err.Error() != c.violationMsg {
+				t.Errorf("[%s]: expected error msg '%s' but got %s", c.name, c.violationMsg, err)
+			}
+		} else {
+			if err != nil {
+				t.Errorf("[%s]: %v", c.name, err)
+			}
+		}
+	}
+
 }
