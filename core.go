@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -63,13 +64,30 @@ func (p Policy) Eval(data interface{}, query string) error {
 	}
 	for _, r := range rs {
 		for _, expr := range r.Expressions {
-			err := NoValidError{
-				Details: expr.Value,
+			switch reflect.TypeOf(expr.Value).Kind() {
+			case reflect.Slice:
+				s := expr.Value.([]interface{})
+				if len(s) > 0 {
+					err := NoValidError{
+						Details: s,
+					}
+					return err
+				}
+			case reflect.Map:
+				s := expr.Value.(map[string]interface{})
+				err := NoValidError{
+					Details: s,
+				}
+				return err
+			case reflect.String:
+				s := expr.Value.(string)
+				err := NoValidError{
+					Details: s,
+				}
+				return err
 			}
-			return err
 		}
 	}
-
 	return nil
 }
 
