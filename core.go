@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -64,31 +63,10 @@ func (p Policy) Eval(data interface{}, query string) error {
 	}
 	for _, r := range rs {
 		for _, expr := range r.Expressions {
-			switch reflect.TypeOf(expr.Value).Kind() {
-			// FIXME: support more formats
-			case reflect.Slice:
-				s := expr.Value.([]interface{})
-				// FIXME: return multiple violations if found
-				for i := 0; i < len(s); i++ {
-					err := NoValidError{
-						Details: s[i],
-					}
-					return err
-				}
-			case reflect.Map:
-				s := expr.Value.(map[string]interface{})
-				err := NoValidError{
-					Details: s,
-				}
-				return err
-			case reflect.String:
-				s := expr.Value.(string)
-				err := NoValidError{
-					Details: s,
-				}
-				return err
+			err := NoValidError{
+				Details: expr.Value,
 			}
-
+			return err
 		}
 	}
 
